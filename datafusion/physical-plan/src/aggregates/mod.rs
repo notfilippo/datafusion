@@ -2254,7 +2254,7 @@ mod tests {
 
         let col_a = col("a", &schema)?;
         let col_b = col("b", &schema)?;
-        let const_expr = Arc::new(Literal::new(ScalarValue::Int32(Some(1))));
+        let const_expr = Arc::new(Literal::from(ScalarValue::Int32(Some(1))));
 
         let groups = PhysicalGroupBy::new(
             vec![
@@ -2264,15 +2264,15 @@ mod tests {
             ],
             vec![
                 (
-                    Arc::new(Literal::new(ScalarValue::Float32(None))),
+                    Arc::new(Literal::from(ScalarValue::Float32(None))),
                     "a".to_string(),
                 ),
                 (
-                    Arc::new(Literal::new(ScalarValue::Float32(None))),
+                    Arc::new(Literal::from(ScalarValue::Float32(None))),
                     "b".to_string(),
                 ),
                 (
-                    Arc::new(Literal::new(ScalarValue::Int32(None))),
+                    Arc::new(Literal::from(ScalarValue::Int32(None))),
                     "const".to_string(),
                 ),
             ],

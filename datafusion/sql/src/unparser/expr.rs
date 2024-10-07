@@ -238,7 +238,7 @@ impl Unparser<'_> {
                     }),
                 }
             }
-            Expr::Literal(value) => Ok(self.scalar_to_sql(value)?),
+            Expr::Literal(scalar) => Ok(self.scalar_to_sql(scalar.value())?),
             Expr::Alias(Alias { expr, name: _, .. }) => self.expr_to_sql_inner(expr),
             Expr::WindowFunction(WindowFunction {
                 fun,
@@ -541,67 +541,73 @@ impl Unparser<'_> {
                 (DateFieldExtractStyle::Extract, 2) => {
                     let date_expr = self.expr_to_sql(&args[1]).ok()?;
 
-                    if let Expr::Literal(ScalarValue::Utf8(Some(field))) = &args[0] {
-                        let field = match field.to_lowercase().as_str() {
-                            "year" => ast::DateTimeField::Year,
-                            "month" => ast::DateTimeField::Month,
-                            "day" => ast::DateTimeField::Day,
-                            "hour" => ast::DateTimeField::Hour,
-                            "minute" => ast::DateTimeField::Minute,
-                            "second" => ast::DateTimeField::Second,
-                            _ => return None,
-                        };
+                    if let Expr::Literal(scalar) = &args[0] {
+                        if let ScalarValue::Utf8(Some(field)) = scalar.value() {
+                            let field = match field.to_lowercase().as_str() {
+                                "year" => ast::DateTimeField::Year,
+                                "month" => ast::DateTimeField::Month,
+                                "day" => ast::DateTimeField::Day,
+                                "hour" => ast::DateTimeField::Hour,
+                                "minute" => ast::DateTimeField::Minute,
+                                "second" => ast::DateTimeField::Second,
+                                _ => return None,
+                            };
 
-                        return Some(ast::Expr::Extract {
-                            field,
-                            expr: Box::new(date_expr),
-                            syntax: ast::ExtractSyntax::From,
-                        });
+                            return Some(ast::Expr::Extract {
+                                field,
+                                expr: Box::new(date_expr),
+                                syntax: ast::ExtractSyntax::From,
+                            });
+                        }
                     }
                 }
                 (DateFieldExtractStyle::Strftime, 2) => {
                     let column = self.expr_to_sql(&args[1]).ok()?;
 
-                    if let Expr::Literal(ScalarValue::Utf8(Some(field))) = &args[0] {
-                        let field = match field.to_lowercase().as_str() {
-                            "year" => "%Y",
-                            "month" => "%m",
-                            "day" => "%d",
-                            "hour" => "%H",
-                            "minute" => "%M",
-                            "second" => "%S",
-                            _ => return None,
-                        };
+                    if let Expr::Literal(scalar) = &args[0] {
+                        if let ScalarValue::Utf8(Some(field)) = scalar.value() {
+                            let field = match field.to_lowercase().as_str() {
+                                "year" => "%Y",
+                                "month" => "%m",
+                                "day" => "%d",
+                                "hour" => "%H",
+                                "minute" => "%M",
+                                "second" => "%S",
+                                _ => return None,
+                            };
 
-                        return Some(ast::Expr::Function(ast::Function {
-                            name: ast::ObjectName(vec![ast::Ident {
-                                value: "strftime".to_string(),
-                                quote_style: None,
-                            }]),
-                            args: ast::FunctionArguments::List(
-                                ast::FunctionArgumentList {
-                                    duplicate_treatment: None,
-                                    args: vec![
-                                        ast::FunctionArg::Unnamed(
-                                            ast::FunctionArgExpr::Expr(ast::Expr::Value(
-                                                ast::Value::SingleQuotedString(
-                                                    field.to_string(),
+                            return Some(ast::Expr::Function(ast::Function {
+                                name: ast::ObjectName(vec![ast::Ident {
+                                    value: "strftime".to_string(),
+                                    quote_style: None,
+                                }]),
+                                args: ast::FunctionArguments::List(
+                                    ast::FunctionArgumentList {
+                                        duplicate_treatment: None,
+                                        args: vec![
+                                            ast::FunctionArg::Unnamed(
+                                                ast::FunctionArgExpr::Expr(
+                                                    ast::Expr::Value(
+                                                        ast::Value::SingleQuotedString(
+                                                            field.to_string(),
+                                                        ),
+                                                    ),
                                                 ),
-                                            )),
-                                        ),
-                                        ast::FunctionArg::Unnamed(
-                                            ast::FunctionArgExpr::Expr(column),
-                                        ),
-                                    ],
-                                    clauses: vec![],
-                                },
-                            ),
-                            filter: None,
-                            null_treatment: None,
-                            over: None,
-                            within_group: vec![],
-                            parameters: ast::FunctionArguments::None,
-                        }));
+                                            ),
+                                            ast::FunctionArg::Unnamed(
+                                                ast::FunctionArgExpr::Expr(column),
+                                            ),
+                                        ],
+                                        clauses: vec![],
+                                    },
+                                ),
+                                filter: None,
+                                null_treatment: None,
+                                over: None,
+                                within_group: vec![],
+                                parameters: ast::FunctionArguments::None,
+                            }));
+                        }
                     }
                 }
                 _ => {} // no overrides for DateFieldExtractStyle::DatePart, because it's already a date_part
@@ -1707,87 +1713,87 @@ mod tests {
                 r#"a LIKE 'foo' ESCAPE 'o'"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date64(Some(0))),
+                Expr::from(ScalarValue::Date64(Some(0))),
                 r#"CAST('1970-01-01 00:00:00' AS DATETIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date64(Some(10000))),
+                Expr::from(ScalarValue::Date64(Some(10000))),
                 r#"CAST('1970-01-01 00:00:10' AS DATETIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date64(Some(-10000))),
+                Expr::from(ScalarValue::Date64(Some(-10000))),
                 r#"CAST('1969-12-31 23:59:50' AS DATETIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date32(Some(0))),
+                Expr::from(ScalarValue::Date32(Some(0))),
                 r#"CAST('1970-01-01' AS DATE)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date32(Some(10))),
+                Expr::from(ScalarValue::Date32(Some(10))),
                 r#"CAST('1970-01-11' AS DATE)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Date32(Some(-1))),
+                Expr::from(ScalarValue::Date32(Some(-1))),
                 r#"CAST('1969-12-31' AS DATE)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampSecond(Some(10001), None)),
+                Expr::from(ScalarValue::TimestampSecond(Some(10001), None)),
                 r#"CAST('1970-01-01 02:46:41' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampSecond(
+                Expr::from(ScalarValue::TimestampSecond(
                     Some(10001),
                     Some("+08:00".into()),
                 )),
                 r#"CAST('1970-01-01 10:46:41 +08:00' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampMillisecond(Some(10001), None)),
+                Expr::from(ScalarValue::TimestampMillisecond(Some(10001), None)),
                 r#"CAST('1970-01-01 00:00:10.001' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampMillisecond(
+                Expr::from(ScalarValue::TimestampMillisecond(
                     Some(10001),
                     Some("+08:00".into()),
                 )),
                 r#"CAST('1970-01-01 08:00:10.001 +08:00' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampMicrosecond(Some(10001), None)),
+                Expr::from(ScalarValue::TimestampMicrosecond(Some(10001), None)),
                 r#"CAST('1970-01-01 00:00:00.010001' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampMicrosecond(
+                Expr::from(ScalarValue::TimestampMicrosecond(
                     Some(10001),
                     Some("+08:00".into()),
                 )),
                 r#"CAST('1970-01-01 08:00:00.010001 +08:00' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampNanosecond(Some(10001), None)),
+                Expr::from(ScalarValue::TimestampNanosecond(Some(10001), None)),
                 r#"CAST('1970-01-01 00:00:00.000010001' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::TimestampNanosecond(
+                Expr::from(ScalarValue::TimestampNanosecond(
                     Some(10001),
                     Some("+08:00".into()),
                 )),
                 r#"CAST('1970-01-01 08:00:00.000010001 +08:00' AS TIMESTAMP)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Time32Second(Some(10001))),
+                Expr::from(ScalarValue::Time32Second(Some(10001))),
                 r#"CAST('02:46:41' AS TIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Time32Millisecond(Some(10001))),
+                Expr::from(ScalarValue::Time32Millisecond(Some(10001))),
                 r#"CAST('00:00:10.001' AS TIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Time64Microsecond(Some(10001))),
+                Expr::from(ScalarValue::Time64Microsecond(Some(10001))),
                 r#"CAST('00:00:00.010001' AS TIME)"#,
             ),
             (
-                Expr::Literal(ScalarValue::Time64Nanosecond(Some(10001))),
+                Expr::from(ScalarValue::Time64Nanosecond(Some(10001))),
                 r#"CAST('00:00:00.000010001' AS TIME)"#,
             ),
             (sum(col("a")), r#"sum(a)"#),
@@ -1922,7 +1928,7 @@ mod tests {
             (col("need quoted").eq(lit(1)), r#"("need quoted" = 1)"#),
             // See test_interval_scalar_to_expr for interval literals
             (
-                (col("a") + col("b")).gt(Expr::Literal(ScalarValue::Decimal128(
+                (col("a") + col("b")).gt(Expr::from(ScalarValue::Decimal128(
                     Some(100123),
                     28,
                     3,
@@ -1930,7 +1936,7 @@ mod tests {
                 r#"((a + b) > 100.123)"#,
             ),
             (
-                (col("a") + col("b")).gt(Expr::Literal(ScalarValue::Decimal256(
+                (col("a") + col("b")).gt(Expr::from(ScalarValue::Decimal256(
                     Some(100123.into()),
                     28,
                     3,
@@ -2206,13 +2212,10 @@ mod tests {
     #[test]
     fn test_float_scalar_to_expr() {
         let tests = [
-            (Expr::Literal(ScalarValue::Float64(Some(3f64))), "3.0"),
-            (Expr::Literal(ScalarValue::Float64(Some(3.1f64))), "3.1"),
-            (Expr::Literal(ScalarValue::Float32(Some(-2f32))), "-2.0"),
-            (
-                Expr::Literal(ScalarValue::Float32(Some(-2.989f32))),
-                "-2.989",
-            ),
+            (Expr::from(ScalarValue::Float64(Some(3f64))), "3.0"),
+            (Expr::from(ScalarValue::Float64(Some(3.1f64))), "3.1"),
+            (Expr::from(ScalarValue::Float32(Some(-2f32))), "-2.0"),
+            (Expr::from(ScalarValue::Float32(Some(-2.989f32))), "-2.989"),
         ];
         for (value, expected) in tests {
             let dialect = CustomDialectBuilder::new().build();
@@ -2300,7 +2303,7 @@ mod tests {
             let expr = ScalarUDF::new_from_impl(
                 datafusion_functions::datetime::date_part::DatePartFunc::new(),
             )
-            .call(vec![Expr::Literal(ScalarValue::new_utf8(unit)), col("x")]);
+            .call(vec![Expr::from(ScalarValue::new_utf8(unit)), col("x")]);
 
             let ast = unparser.expr_to_sql(&expr)?;
             let actual = format!("{}", ast);
@@ -2408,7 +2411,7 @@ mod tests {
     fn test_cast_value_to_dict_expr() {
         let tests = [(
             Expr::Cast(Cast {
-                expr: Box::new(Expr::Literal(ScalarValue::Utf8(Some(
+                expr: Box::new(Expr::from(ScalarValue::Utf8(Some(
                     "variation".to_string(),
                 )))),
                 data_type: DataType::Dictionary(

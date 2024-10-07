@@ -1964,7 +1964,7 @@ fn roundtrip_case_with_null() {
     let test_expr = Expr::Case(Case::new(
         Some(Box::new(lit(1.0_f32))),
         vec![(Box::new(lit(2.0_f32)), Box::new(lit(3.0_f32)))],
-        Some(Box::new(Expr::Literal(ScalarValue::Null))),
+        Some(Box::new(Expr::from(ScalarValue::Null))),
     ));
 
     let ctx = SessionContext::new();
@@ -1973,7 +1973,7 @@ fn roundtrip_case_with_null() {
 
 #[test]
 fn roundtrip_null_literal() {
-    let test_expr = Expr::Literal(ScalarValue::Null);
+    let test_expr = Expr::from(ScalarValue::Null);
 
     let ctx = SessionContext::new();
     roundtrip_expr_test(test_expr, ctx);

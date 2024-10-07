@@ -2452,7 +2452,7 @@ mod tests {
         literal: ScalarValue,
         expected: ArrayRef,
     ) -> Result<()> {
-        let lit = Arc::new(Literal::new(literal));
+        let lit = Arc::new(Literal::from(literal));
         let arithmetic_op = binary_op(col("a", &schema)?, op, lit, &schema)?;
         let batch = RecordBatch::try_new(schema, data)?;
         let result = arithmetic_op
